@@ -126,6 +126,18 @@ async function predictFailure(features) {
     console.log('[FALLBACK] Failure probability:', failureProbability);
   }
 
+  // Apply minimum risk levels for elevated warning conditions.
+  // These are illustrative project rules and must be calibrated
+  // against validated robot-maintenance data before real-world use.
+  const temperature = Number(features.temperature) || 45;
+  const vibration = Number(features.vibration) || 1.5;
+
+  if (temperature >= 70 || vibration >= 4.5) {
+    failureProbability = Math.max(failureProbability, 0.40);
+  } else if (temperature >= 60 || vibration >= 4.0) {
+    failureProbability = Math.max(failureProbability, 0.20);
+  }
+
   // Ensure failureProbability is within [0, 1]
   failureProbability = Math.min(Math.max(failureProbability, 0.01), 0.99);
   const failurePercentage = Math.round(failureProbability * 100);
