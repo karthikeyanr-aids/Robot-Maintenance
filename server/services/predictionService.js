@@ -89,6 +89,67 @@ function fallbackPredict(features) {
 }
 
 /**
+ * Calculates continuous, dynamic risk based on industrial telemetry thresholds
+ */
+function calculateDynamicTelemetryRisk(features) {
+  const temp = Number(features.temperature) || 45;
+  const vib = Number(features.vibration) || 1.5;
+  const hours = Number(features.runtimeHours) || 0;
+  const errors = Number(features.errorCount) || 0;
+  const compLife = Number(features.componentLifePercent) !== undefined && !isNaN(Number(features.componentLifePercent)) ? Number(features.componentLifePercent) : 100;
+  const daysSinceMaint = Number(features.daysSinceMaintenance) || 0;
+
+  let risk = 0.02; // baseline 2% failure probability for brand-new healthy robot
+
+  // 1. Temperature factor
+  if (temp > 55) {
+    if (temp >= 80) {
+      risk += 0.45 + Math.min((temp - 80) / 20, 0.40); // 0.45 - 0.85
+    } else if (temp >= 70) {
+      risk += 0.25 + ((temp - 70) / 10) * 0.20; // 0.25 - 0.45
+    } else {
+      risk += ((temp - 55) / 15) * 0.20; // 0.0 - 0.20
+    }
+  }
+
+  // 2. Vibration factor (RMS mm/s)
+  if (vib > 2.5) {
+    if (vib >= 6.0) {
+      risk += 0.40 + Math.min((vib - 6.0) / 6.0, 0.45); // 0.40 - 0.85
+    } else if (vib >= 4.0) {
+      risk += 0.20 + ((vib - 4.0) / 2.0) * 0.20; // 0.20 - 0.40
+    } else {
+      risk += ((vib - 2.5) / 1.5) * 0.15; // 0.0 - 0.15
+    }
+  }
+
+  // 3. Runtime factor
+  if (hours > 2000) {
+    risk += Math.min((hours - 2000) / 12000, 1.0) * 0.15;
+  }
+
+  // 4. Component wear & error logs
+  if (compLife < 60) {
+    risk += ((60 - compLife) / 60) * 0.25;
+  }
+  if (errors > 0) {
+    risk += Math.min(errors / 10, 1.0) * 0.20;
+  }
+  if (daysSinceMaint > 90) {
+    risk += Math.min((daysSinceMaint - 90) / 180, 1.0) * 0.10;
+  }
+
+  // Explicit status overrides or safeguards
+  if (features.status === 'CRITICAL') {
+    risk = Math.max(risk, 0.82);
+  } else if (features.status === 'WARNING') {
+    risk = Math.max(risk, 0.45);
+  }
+
+  return Math.min(Math.max(risk, 0.01), 0.99);
+}
+
+/**
  * Predicts failure probability and health metrics for a robot.
  */
 async function predictFailure(features) {
@@ -126,17 +187,9 @@ async function predictFailure(features) {
     console.log('[FALLBACK] Failure probability:', failureProbability);
   }
 
-  // Apply minimum risk levels for elevated warning conditions.
-  // These are illustrative project rules and must be calibrated
-  // against validated robot-maintenance data before real-world use.
-  const temperature = Number(features.temperature) || 45;
-  const vibration = Number(features.vibration) || 1.5;
-
-  if (temperature >= 70 || vibration >= 4.5) {
-    failureProbability = Math.max(failureProbability, 0.40);
-  } else if (temperature >= 60 || vibration >= 4.0) {
-    failureProbability = Math.max(failureProbability, 0.20);
-  }
+  // Dynamic telemetry degradation risk model based on physical thresholds
+  const dynamicRisk = calculateDynamicTelemetryRisk(features);
+  failureProbability = Math.max(failureProbability, dynamicRisk);
 
   // Ensure failureProbability is within [0, 1]
   failureProbability = Math.min(Math.max(failureProbability, 0.01), 0.99);
@@ -145,11 +198,11 @@ async function predictFailure(features) {
 
   // Risk Classification
   let riskLevel = 'LOW';
-  if (failurePercentage >= 85) {
+  if (failurePercentage >= 80 || features.status === 'CRITICAL') {
     riskLevel = 'CRITICAL';
-  } else if (failurePercentage >= 70) {
+  } else if (failurePercentage >= 65) {
     riskLevel = 'HIGH';
-  } else if (failurePercentage >= 40) {
+  } else if (failurePercentage >= 35 || features.status === 'WARNING') {
     riskLevel = 'MEDIUM';
   } else {
     riskLevel = 'LOW';
@@ -172,4 +225,5 @@ async function predictFailure(features) {
 module.exports = {
   predictFailure,
   initModel,
+  calculateDynamicTelemetryRisk,
 };

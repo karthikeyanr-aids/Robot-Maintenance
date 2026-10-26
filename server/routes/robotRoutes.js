@@ -6,6 +6,7 @@ const Component = require('../models/Component');
 const ErrorLog = require('../models/ErrorLog');
 const MaintenanceRecord = require('../models/MaintenanceRecord');
 const Prediction = require('../models/Prediction');
+const { predictFailure } = require('../services/predictionService');
 const { protect, authorize } = require('../middleware/auth');
 
 // Helper to check valid ObjectId or find by robotId
@@ -123,8 +124,19 @@ router.get('/:id', protect, async (req, res, next) => {
 // @access  Private (ADMIN)
 router.post('/', protect, authorize('ADMIN'), async (req, res, next) => {
   try {
-    const { robotId, name, model, manufacturer, location, installationDate, runtimeHours, temperature, vibration } =
-      req.body;
+    const {
+      robotId,
+      name,
+      model,
+      manufacturer,
+      location,
+      installationDate,
+      runtimeHours,
+      temperature,
+      vibration,
+      status,
+      healthScore,
+    } = req.body;
 
     if (!robotId || !name || !model || !manufacturer || !location) {
       return res.status(400).json({ success: false, message: 'Please provide all required robot fields' });
@@ -135,6 +147,34 @@ router.post('/', protect, authorize('ADMIN'), async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Robot with ID ${robotId.toUpperCase()} already exists` });
     }
 
+    const parsedHours = Number(runtimeHours) || 0;
+    const parsedTemp = Number(temperature) || 45.0;
+    const parsedVib = Number(vibration) || 1.5;
+
+    // Run prediction to dynamically determine initial healthScore and status based on physical telemetry
+    const initialFeatures = {
+      runtimeHours: parsedHours,
+      temperature: parsedTemp,
+      vibration: parsedVib,
+      status: status && status !== 'AUTO' ? status.toUpperCase() : undefined,
+    };
+
+    const initialPrediction = await predictFailure(initialFeatures);
+
+    // Determine final status
+    let finalStatus = 'HEALTHY';
+    if (status && status !== 'AUTO' && ['HEALTHY', 'WARNING', 'CRITICAL', 'MAINTENANCE'].includes(status.toUpperCase())) {
+      finalStatus = status.toUpperCase();
+    } else {
+      if (initialPrediction.riskLevel === 'CRITICAL') finalStatus = 'CRITICAL';
+      else if (initialPrediction.riskLevel === 'HIGH' || initialPrediction.riskLevel === 'MEDIUM') finalStatus = 'WARNING';
+      else finalStatus = 'HEALTHY';
+    }
+
+    const finalHealthScore = typeof healthScore === 'number'
+      ? healthScore
+      : initialPrediction.healthScore;
+
     const robot = await Robot.create({
       robotId: robotId.toUpperCase(),
       name,
@@ -142,16 +182,28 @@ router.post('/', protect, authorize('ADMIN'), async (req, res, next) => {
       manufacturer,
       location,
       installationDate: installationDate || Date.now(),
-      runtimeHours: runtimeHours || 0,
-      temperature: temperature || 45.0,
-      vibration: vibration || 1.5,
-      status: 'HEALTHY',
-      healthScore: 100,
+      runtimeHours: parsedHours,
+      temperature: parsedTemp,
+      vibration: parsedVib,
+      status: finalStatus,
+      healthScore: finalHealthScore,
+    });
+
+    // Create baseline prediction record
+    await Prediction.create({
+      robotId: robot._id,
+      failureProbability: initialPrediction.failureProbability,
+      failurePercentage: initialPrediction.failurePercentage,
+      riskLevel: initialPrediction.riskLevel,
+      healthScore: finalHealthScore,
+      features: initialFeatures,
+      recommendation: initialPrediction.recommendation,
+      reasons: initialPrediction.reasons,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Robot created successfully',
+      message: 'Robot created successfully with calibrated health index',
       data: robot,
     });
   } catch (error) {
@@ -169,7 +221,30 @@ router.put('/:id', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Robot not found' });
     }
 
-    robot = await Robot.findByIdAndUpdate(robot._id, req.body, {
+    const updatedData = { ...req.body };
+
+    // If telemetry (temperature, vibration, runtimeHours, status) changed and healthScore was not explicitly set,
+    // recalculate healthScore dynamically!
+    if (
+      (updatedData.temperature !== undefined || updatedData.vibration !== undefined || updatedData.runtimeHours !== undefined || updatedData.status !== undefined) &&
+      updatedData.healthScore === undefined
+    ) {
+      const pred = await predictFailure({
+        temperature: updatedData.temperature ?? robot.temperature,
+        vibration: updatedData.vibration ?? robot.vibration,
+        runtimeHours: updatedData.runtimeHours ?? robot.runtimeHours,
+        status: updatedData.status ?? robot.status,
+      });
+
+      updatedData.healthScore = pred.healthScore;
+      if (!updatedData.status || updatedData.status === 'AUTO') {
+        if (pred.riskLevel === 'CRITICAL') updatedData.status = 'CRITICAL';
+        else if (pred.riskLevel === 'HIGH' || pred.riskLevel === 'MEDIUM') updatedData.status = 'WARNING';
+        else updatedData.status = 'HEALTHY';
+      }
+    }
+
+    robot = await Robot.findByIdAndUpdate(robot._id, updatedData, {
       new: true,
       runValidators: true,
     });
