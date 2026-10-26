@@ -110,29 +110,29 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen w-full relative flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans overflow-hidden bg-gradient-to-tr from-[#162032] via-[#e2e8f0] to-[#c1e8c9]">
-      
+
       {/* Dynamic Animated Ambient Glow Lights */}
-      <div 
+      <div
         className="absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full bg-emerald-300/45 blur-[100px] pointer-events-none transition-transform duration-700 ease-out"
         style={{ transform: `translate(${mousePos.x * -1}px, ${mousePos.y * -1}px)` }}
       />
-      <div 
+      <div
         className="absolute top-1/2 -left-36 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-[#1b2537]/85 blur-[90px] pointer-events-none transition-transform duration-700 ease-out"
         style={{ transform: `translate(${mousePos.x * 1.2}px, ${mousePos.y * 1.2}px)` }}
       />
-      <div 
+      <div
         className="absolute -bottom-28 right-1/4 w-[380px] h-[380px] rounded-full bg-teal-200/50 blur-[90px] pointer-events-none transition-transform duration-700 ease-out"
         style={{ transform: `translate(${mousePos.x * 0.8}px, ${mousePos.y * 0.8}px)` }}
       />
 
       {/* Main Glassmorphic Card Container */}
       <div className="w-full max-w-4xl relative z-10 rounded-[36px] sm:rounded-[44px] border border-white/80 bg-white/30 backdrop-blur-3xl shadow-[0_30px_70px_-20px_rgba(15,23,42,0.3)] overflow-hidden transition-all duration-300">
-        
+
         <div className="grid grid-cols-1 md:grid-cols-12 min-h-[570px]">
-          
+
           {/* LEFT FORM PANEL (Slate Dark Glassmorphic Capsule) */}
           <div className="md:col-span-6 lg:col-span-6 bg-[#1a2636] text-white p-7 sm:p-10 lg:p-12 flex flex-col justify-between relative shadow-2xl overflow-hidden">
-            
+
             {/* Subtle inner ambient glow */}
             <div className="absolute -top-24 -left-24 w-52 h-52 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
             <div className="absolute -bottom-20 -right-20 w-44 h-44 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none" />
@@ -155,8 +155,8 @@ export const Login = () => {
                   {isRegisterMode ? 'REGISTER' : 'WELCOME'}
                 </h1>
                 <p className="text-xs text-slate-200 mt-1.5 font-medium leading-relaxed">
-                  {isRegisterMode 
-                    ? 'Create your credentials to access system telemetry' 
+                  {isRegisterMode
+                    ? 'Create your credentials to access system telemetry'
                     : 'Sign in to monitor robotic fleet health & AI diagnostics'}
                 </p>
               </div>
@@ -178,7 +178,7 @@ export const Login = () => {
 
               {/* Form Controls */}
               <form onSubmit={isRegisterMode ? handleRegisterSubmit : handleLoginSubmit} className="space-y-4">
-                
+
                 {isRegisterMode && (
                   <>
                     <div>
@@ -311,7 +311,7 @@ export const Login = () => {
 
           {/* RIGHT SHOWCASE PANEL (Aesthetic Clean 3D Illustration & Platform Info) */}
           <div className="md:col-span-6 lg:col-span-6 bg-gradient-to-br from-white/80 via-white/50 to-emerald-50/60 p-6 sm:p-8 lg:p-10 flex flex-col justify-center items-center text-center relative overflow-hidden backdrop-blur-md">
-            
+
             {/* Ambient Background Aura */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-200/40 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-200/30 rounded-full blur-3xl pointer-events-none" />

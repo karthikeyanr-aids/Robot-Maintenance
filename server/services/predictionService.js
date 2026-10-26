@@ -108,6 +108,8 @@ async function predictFailure(features) {
       const predictionTensor = loadedModel.predict(inputTensor);
       const predictionData = await predictionTensor.data();
       failureProbability = parseFloat(predictionData[0].toFixed(4));
+       console.log('[ML MODEL] Input features:', features);
+       console.log('[ML MODEL] Raw prediction:', predictionData[0])
 
       // Free tensors
       inputTensor.dispose();
@@ -115,9 +117,13 @@ async function predictFailure(features) {
     } catch (err) {
       console.warn('[ML Service] Prediction failed with TensorFlow.js, applying fallback:', err.message);
       failureProbability = parseFloat(fallbackPredict(features).toFixed(4));
+       console.log('[FALLBACK] Input features:', features);
+       console.log('[FALLBACK] Failure probability:', failureProbability);
     }
   } else {
     failureProbability = parseFloat(fallbackPredict(features).toFixed(4));
+    console.log('[FALLBACK] Input features:', features);
+    console.log('[FALLBACK] Failure probability:', failureProbability);
   }
 
   // Ensure failureProbability is within [0, 1]
