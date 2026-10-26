@@ -1,0 +1,30 @@
+{
+  "runtimeHours": {
+    "mean": 6967.913666666666,
+    "stdDev": 3975.760522241401
+  },
+  "errorCount": {
+    "mean": 3.6843333333333335,
+    "stdDev": 4.003084796614817
+  },
+  "temperature": {
+    "mean": 59.62753333333345,
+    "stdDev": 9.354369847771084
+  },
+  "vibration": {
+    "mean": 5.402523333333332,
+    "stdDev": 2.2789131765212645
+  },
+  "componentLifePercent": {
+    "mean": 57.272333333333336,
+    "stdDev": 18.851476543997528
+  },
+  "daysSinceMaintenance": {
+    "mean": 180.392,
+    "stdDev": 104.49354207796772
+  },
+  "previousFailures": {
+    "mean": 1.8406666666666667,
+    "stdDev": 1.6950750884711794
+  }
+}
