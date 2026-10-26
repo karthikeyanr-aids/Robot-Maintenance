@@ -8,6 +8,7 @@ const ErrorLog = require('../models/ErrorLog');
 const MaintenanceRecord = require('../models/MaintenanceRecord');
 const Notification = require('../models/Notification');
 const { predictFailure } = require('../services/predictionService');
+const { syncErrorLogsFromTelemetry } = require('../services/errorSyncService');
 const { protect } = require('../middleware/auth');
 
 // Helper to resolve robot
@@ -166,7 +167,15 @@ router.post('/analyze/:robotId', protect, async (req, res, next) => {
     }
     await robot.save();
 
-    // 9. Create Notification if risk is HIGH or CRITICAL
+    // 9. Sync prediction root causes to active ErrorLog entries so they appear on Error Logs page
+    const createdErrors = await syncErrorLogsFromTelemetry(
+      robot,
+      features,
+      predictionResult,
+      worstComponent ? worstComponent._id : null
+    );
+
+    // 10. Create Notification if risk is HIGH or CRITICAL
     if (predictionResult.riskLevel === 'HIGH' || predictionResult.riskLevel === 'CRITICAL') {
       await Notification.create({
         robotId: robot._id,
@@ -178,7 +187,7 @@ router.post('/analyze/:robotId', protect, async (req, res, next) => {
       });
     }
 
-    // 10. Return complete structured response matching prompt specification
+    // 11. Return complete structured response matching prompt specification
     res.status(200).json({
       success: true,
       predictionId: prediction._id,
@@ -192,6 +201,7 @@ router.post('/analyze/:robotId', protect, async (req, res, next) => {
       reasons: predictionResult.reasons,
       features: predictionResult.features,
       affectedComponent: worstComponent ? worstComponent.name : 'System Overall',
+      newErrorsLogged: createdErrors.length,
       createdAt: prediction.createdAt,
     });
   } catch (error) {

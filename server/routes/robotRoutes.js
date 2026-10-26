@@ -7,6 +7,7 @@ const ErrorLog = require('../models/ErrorLog');
 const MaintenanceRecord = require('../models/MaintenanceRecord');
 const Prediction = require('../models/Prediction');
 const { predictFailure } = require('../services/predictionService');
+const { syncErrorLogsFromTelemetry } = require('../services/errorSyncService');
 const { protect, authorize } = require('../middleware/auth');
 
 // Helper to check valid ObjectId or find by robotId
@@ -201,6 +202,9 @@ router.post('/', protect, authorize('ADMIN'), async (req, res, next) => {
       reasons: initialPrediction.reasons,
     });
 
+    // Automatically sync initial anomalies to ErrorLog so Error Logs page is populated
+    await syncErrorLogsFromTelemetry(robot, initialFeatures, initialPrediction);
+
     res.status(201).json({
       success: true,
       message: 'Robot created successfully with calibrated health index',
@@ -242,6 +246,9 @@ router.put('/:id', protect, async (req, res, next) => {
         else if (pred.riskLevel === 'HIGH' || pred.riskLevel === 'MEDIUM') updatedData.status = 'WARNING';
         else updatedData.status = 'HEALTHY';
       }
+
+      // Automatically sync newly detected anomalies to ErrorLog collection
+      await syncErrorLogsFromTelemetry(robot, updatedData, pred);
     }
 
     robot = await Robot.findByIdAndUpdate(robot._id, updatedData, {
